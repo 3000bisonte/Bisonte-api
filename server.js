@@ -43,14 +43,39 @@ app.get('/health', (req, res) => {
 // Importar rutas solo si las variables están configuradas
 try {
   if (process.env.DATABASE_URL) {
+    // Importar todas las rutas
     const authRoutes = require('./routes/auth');
+    const enviosRoutes = require('./routes/envios');
+    const usuariosRoutes = require('./routes/usuarios');
+    const perfilRoutes = require('./routes/perfil');
+    const remitenteRoutes = require('./routes/remitente');
+    const destinatarioRoutes = require('./routes/destinatario');
+    const mercadopagoRoutes = require('./routes/mercadopago');
+    const contactoRoutes = require('./routes/contacto');
+    const adminRoutes = require('./routes/admin');
+
+    // Usar todas las rutas
     app.use('/api/auth', authRoutes);
-    console.log('✅ Auth routes loaded');
+    app.use('/api/envios', enviosRoutes);
+    app.use('/api/usuarios', usuariosRoutes);
+    app.use('/api/perfil', perfilRoutes);
+    app.use('/api/remitente', remitenteRoutes);
+    app.use('/api/destinatario', destinatarioRoutes);
+    app.use('/api/mercadopago', mercadopagoRoutes);
+    app.use('/api/contacto', contactoRoutes);
+    app.use('/api/admin', adminRoutes);
+    
+    console.log('✅ All API routes loaded successfully');
   } else {
     console.log('❌ DATABASE_URL not configured');
   }
 } catch (error) {
   console.error('❌ Error loading routes:', error.message);
+  
+  // Rutas básicas si hay error
+  app.post('/api/auth/login', (req, res) => {
+    res.status(500).json({ error: 'Database not configured', details: error.message });
+  });
 }
 
 // Ruta catch-all para APIs no encontradas
