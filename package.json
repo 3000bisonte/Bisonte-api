@@ -1,15 +1,15 @@
 {
   "name": "bisonte-api-server",
-  "version": "1.0.0",
-  "description": "Servidor API para Bisonte Logística",
-  "main": "server.js",
+  "version": "2.0.0",
+  "description": "Servidor API SIMPLIFICADO para Bisonte Logística",
+  "main": "server-simple.js",
   "engines": {
     "node": ">=18.0.0"
   },
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js",
-    "build": "prisma generate"
+    "start": "node server-simple.js",
+    "dev": "nodemon server-simple.js",
+    "build": "echo 'Build simplificado completado'"
   },
   "dependencies": {
     "@prisma/client": "^5.0.0",
@@ -20,7 +20,8 @@
     "jsonwebtoken": "^9.0.2",
     "mercadopago": "^1.5.17",
     "nodemailer": "^6.9.4",
-    "pg": "^8.16.3"
+    "pg": "^8.16.3",
+    "resend": "^6.0.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
