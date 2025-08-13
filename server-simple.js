@@ -45,6 +45,28 @@ app.get('/', (req, res) => {
     version: '2.0.0'
   });
 });
+ 
+  // Extended health with env introspection
+  app.get('/api/health', (req, res) => {
+    res.json({
+      status: 'OK',
+      uptime: process.uptime(),
+      timestamp: new Date().toISOString(),
+      version: '2.0.0',
+      env: {
+        node: process.version,
+        vercel: !!process.env.VERCEL,
+      },
+      vars: {
+        database_url: !!process.env.DATABASE_URL,
+        jwt_secret: !!process.env.JWT_SECRET,
+        mp_public: !!process.env.MERCADOPAGO_PUBLIC_KEY,
+        mp_access: !!process.env.MERCADOPAGO_ACCESS_TOKEN,
+        resend: !!process.env.RESEND_API_KEY,
+        google_client: !!process.env.GOOGLE_CLIENT_ID
+      }
+    });
+  });
 
 // ===== APIS PRINCIPALES =====
 
