@@ -9,7 +9,7 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 // Utilidades JWT
-const { signToken, verifyToken, authMiddleware, requireAuth } = require('./auth-utils');
+const { signToken, verifyToken, authMiddleware, requireAuth, requireAdmin } = require('./auth-utils');
 let GoogleClient = null;
 try {
   const { OAuth2Client } = require('google-auth-library');
@@ -279,7 +279,9 @@ app.get('/api/test', (req, res) => {
       recuperar: '/api/recuperar (POST)',
       validar_token: '/api/recuperar/validar-token (POST)',
       // Administración
-  admin_stats: '/api/admin/stats (GET - protegido)'
+  admin_stats: '/api/admin/stats (GET - solo admin)',
+  admin_users: '/api/admin/users (GET - solo admin)',
+  admin_settings: '/api/admin/settings (GET/POST - solo admin)'
     }
   });
 });
@@ -310,7 +312,7 @@ app.post('/api/auth/login', (req, res) => {
     const user = demoUsers.find(u => u.email === email && u.password === password);
     
     if (user) {
-      const { token, expiresIn } = signToken({ id: user.id, email: user.email, name: user.name, provider: 'credentials' });
+      const { token, expiresIn, role } = signToken({ id: user.id, email: user.email, name: user.name, provider: 'credentials' });
       res.json({
         success: true,
         user: { 
@@ -318,11 +320,13 @@ app.post('/api/auth/login', (req, res) => {
           email: user.email, 
           name: user.name,
           nombre: user.name,
-          provider: 'credentials'
+          provider: 'credentials',
+          role: role
         },
         token,
         token_type: 'Bearer',
-        expiresIn
+        expiresIn,
+        role
       });
     } else {
       res.status(401).json({ 
@@ -380,13 +384,14 @@ app.post('/api/auth/google', async (req, res) => {
       verified: true
     };
 
-  const { token, expiresIn } = signToken({ id: user.id, email: user.email, name: user.name, provider: 'google' });
+  const { token, expiresIn, role } = signToken({ id: user.id, email: user.email, name: user.name, provider: 'google' });
     res.json({
       success: true,
-      user: user,
+      user: { ...user, role },
       token,
       token_type: 'Bearer',
       expiresIn,
+      role,
       message: 'Autenticación con Google exitosa'
     });
 
@@ -423,14 +428,15 @@ app.post('/api/register', (req, res) => {
       createdAt: new Date().toISOString()
     };
 
-    const { token, expiresIn } = signToken({ id: newUser.id, email: newUser.email, name: newUser.nombre, provider: 'credentials' });
+    const { token, expiresIn, role } = signToken({ id: newUser.id, email: newUser.email, name: newUser.nombre, provider: 'credentials' });
     res.json({
       success: true,
       message: 'Usuario registrado correctamente',
-      user: newUser,
+      user: { ...newUser, role },
       token,
       token_type: 'Bearer',
-      expiresIn
+      expiresIn,
+      role
     });
   } catch (error) {
     console.error('❌ Error en registro:', error);
@@ -956,9 +962,9 @@ app.post('/api/email', (req, res) => {
 // ===== ESTADÍSTICAS DE ADMINISTRACIÓN =====
 
 // Estadísticas para el dashboard de admin
-app.get('/api/admin/stats', requireAuth, (req, res) => {
+app.get('/api/admin/stats', requireAdmin, (req, res) => {
   try {
-    console.log('📊 Admin stats solicitadas');
+    console.log('📊 Admin stats solicitadas por:', req.user.email, 'role:', req.user.role);
     
     // Datos de ejemplo para el dashboard
     const stats = {
@@ -1006,6 +1012,138 @@ app.get('/api/admin/stats', requireAuth, (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Error obteniendo estadísticas del sistema'
+    });
+  }
+});
+
+// Gestión de usuarios (solo admin)
+app.get('/api/admin/users', requireAdmin, (req, res) => {
+  try {
+    console.log('👥 Admin users solicitado por:', req.user.email);
+    
+    // Datos de ejemplo con información adicional de admin
+    const users = [
+      {
+        id: 1,
+        email: 'demo@bisonte.com',
+        name: 'Usuario Demo',
+        role: 'user',
+        createdAt: '2024-01-15',
+        lastLogin: '2025-01-13',
+        enviosCount: 15,
+        status: 'active'
+      },
+      {
+        id: 2,
+        email: '3000bisonte@gmail.com',
+        name: 'Admin Bisonte',
+        role: 'admin',
+        createdAt: '2023-12-01',
+        lastLogin: '2025-01-13',
+        enviosCount: 89,
+        status: 'active'
+      },
+      {
+        id: 3,
+        email: 'bisonteangela@gmail.com',
+        name: 'Angela Admin',
+        role: 'admin',
+        createdAt: '2024-02-10',
+        lastLogin: '2025-01-12',
+        enviosCount: 45,
+        status: 'active'
+      },
+      {
+        id: 4,
+        email: 'bisonteoskar@gmail.com',
+        name: 'Oskar Admin',
+        role: 'admin',
+        createdAt: '2024-03-05',
+        lastLogin: '2025-01-11',
+        enviosCount: 67,
+        status: 'active'
+      }
+    ];
+
+    res.json({
+      success: true,
+      users,
+      total: users.length,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Error obteniendo usuarios:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error obteniendo usuarios del sistema'
+    });
+  }
+});
+
+// Configuración del sistema (solo admin)
+app.get('/api/admin/settings', requireAdmin, (req, res) => {
+  try {
+    console.log('⚙️ Admin settings solicitado por:', req.user.email);
+    
+    const settings = {
+      sistema: {
+        version: '2.0.0',
+        environment: process.env.NODE_ENV || 'development',
+        uptime: process.uptime(),
+        maintenance: false
+      },
+      integraciones: {
+        mercadopago: !!process.env.MERCADOPAGO_ACCESS_TOKEN,
+        resend: !!process.env.RESEND_API_KEY,
+        google: !!process.env.GOOGLE_CLIENT_ID,
+        database: !!process.env.DATABASE_URL
+      },
+      configuracion: {
+        jwt_expires: '7d',
+        max_envio_peso: 50,
+        ciudades_disponibles: ['Bogotá', 'Medellín', 'Cali', 'Barranquilla'],
+        admins_count: 3
+      }
+    };
+
+    res.json({
+      success: true,
+      settings,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Error obteniendo configuración:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error obteniendo configuración del sistema'
+    });
+  }
+});
+
+// Actualizar configuración (solo admin)
+app.post('/api/admin/settings', requireAdmin, (req, res) => {
+  try {
+    console.log('⚙️ Admin settings actualizado por:', req.user.email, req.body);
+    
+    const { setting, value } = req.body;
+    
+    // Simular actualización de configuración
+    res.json({
+      success: true,
+      message: `Configuración '${setting}' actualizada correctamente`,
+      setting,
+      value,
+      updatedBy: req.user.email,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Error actualizando configuración:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error actualizando configuración del sistema'
     });
   }
 });
