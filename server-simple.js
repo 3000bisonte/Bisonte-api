@@ -130,8 +130,8 @@ app.post('/api/envios', (req, res) => {
   }
 });
 
-// API de Perfil - Información del usuario
-app.get('/api/perfil', (req, res) => {
+// API de Perfil - Información del usuario (protegido)
+app.get('/api/perfil', requireAuth, (req, res) => {
   try {
     res.json({
       success: true,
@@ -258,18 +258,18 @@ app.get('/api/test', (req, res) => {
   protegido_demo: '/api/protegido/demo (GET - requiere Bearer token)',
       register: '/api/register (POST)',
       // Usuarios
-      usuarios: '/api/usuarios (GET/POST)',
-      perfil: '/api/perfil (GET/POST)',
+  usuarios: '/api/usuarios (GET/POST - protegido)',
+  perfil: '/api/perfil (GET/POST - protegido)',
       perfil_exists: '/api/perfil/existeusuario (GET)',
       // Envíos
-      envios: '/api/envios (GET/POST)',
-      envios_historial: '/api/envios/historial (GET)',
-      guardar_envio: '/api/guardarenvio (POST)',
+  envios: '/api/envios (GET/POST)',
+  envios_historial: '/api/envios/historial (GET - protegido)',
+  guardar_envio: '/api/guardarenvio (POST - protegido)',
       // Contactos
       contacto: '/api/contacto (GET/POST)',
       // Remitente/Destinatario
-      remitente: '/api/remitente (GET/POST)',
-      destinatario: '/api/destinatario (GET/POST)',
+  remitente: '/api/remitente (GET/POST - protegido)',
+  destinatario: '/api/destinatario (GET/POST - protegido)',
       // MercadoPago
       mercadopago_status: '/api/mercadopago/status (GET)',
       mercadopago_preference: '/api/mercadopago/create-preference (POST)',
@@ -279,7 +279,7 @@ app.get('/api/test', (req, res) => {
       recuperar: '/api/recuperar (POST)',
       validar_token: '/api/recuperar/validar-token (POST)',
       // Administración
-      admin_stats: '/api/admin/stats (GET)'
+  admin_stats: '/api/admin/stats (GET - protegido)'
     }
   });
 });
@@ -461,8 +461,8 @@ app.get('/api/protegido/demo', requireAuth, (req, res) => {
 
 // ===== USUARIOS =====
 
-// Obtener todos los usuarios
-app.get('/api/usuarios', (req, res) => {
+// Obtener todos los usuarios (protegido)
+app.get('/api/usuarios', requireAuth, (req, res) => {
   try {
     const usuarios = [
       { id: 1, email: 'demo@bisonte.com', nombre: 'Usuario Demo', ciudad: 'Bogotá' },
@@ -534,8 +534,8 @@ app.get('/api/perfil/existeusuario', (req, res) => {
   }
 });
 
-// Actualizar perfil
-app.post('/api/perfil', (req, res) => {
+// Actualizar perfil (protegido)
+app.post('/api/perfil', requireAuth, (req, res) => {
   try {
     console.log('📝 Actualizar perfil:', req.body);
     
@@ -599,7 +599,7 @@ app.get('/api/envios', (req, res) => {
 });
 
 // Historial de envíos
-app.get('/api/envios/historial', (req, res) => {
+app.get('/api/envios/historial', requireAuth, (req, res) => {
   try {
     const { email } = req.query;
     
@@ -640,7 +640,7 @@ app.get('/api/envios/historial', (req, res) => {
 });
 
 // Guardar envío
-app.post('/api/guardarenvio', (req, res) => {
+app.post('/api/guardarenvio', requireAuth, (req, res) => {
   try {
     console.log('💾 Guardar envío:', req.body);
     
@@ -699,7 +699,7 @@ app.get('/api/contacto', (req, res) => {
 // ===== REMITENTE =====
 
 // Obtener remitentes
-app.get('/api/remitente', (req, res) => {
+app.get('/api/remitente', requireAuth, (req, res) => {
   try {
     const remitentes = [
       {
@@ -727,7 +727,7 @@ app.get('/api/remitente', (req, res) => {
 });
 
 // Crear remitente
-app.post('/api/remitente', (req, res) => {
+app.post('/api/remitente', requireAuth, (req, res) => {
   try {
     console.log('📤 Crear remitente:', req.body);
     
@@ -755,7 +755,7 @@ app.post('/api/remitente', (req, res) => {
 // ===== DESTINATARIO =====
 
 // Obtener destinatarios
-app.get('/api/destinatario', (req, res) => {
+app.get('/api/destinatario', requireAuth, (req, res) => {
   try {
     const destinatarios = [
       {
@@ -783,7 +783,7 @@ app.get('/api/destinatario', (req, res) => {
 });
 
 // Crear destinatario
-app.post('/api/destinatario', (req, res) => {
+app.post('/api/destinatario', requireAuth, (req, res) => {
   try {
     console.log('📥 Crear destinatario:', req.body);
     
@@ -956,7 +956,7 @@ app.post('/api/email', (req, res) => {
 // ===== ESTADÍSTICAS DE ADMINISTRACIÓN =====
 
 // Estadísticas para el dashboard de admin
-app.get('/api/admin/stats', (req, res) => {
+app.get('/api/admin/stats', requireAuth, (req, res) => {
   try {
     console.log('📊 Admin stats solicitadas');
     
