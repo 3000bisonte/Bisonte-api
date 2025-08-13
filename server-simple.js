@@ -8,6 +8,8 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+// Utilidades JWT
+const { signToken, verifyToken, authMiddleware, requireAuth } = require('./auth-utils');
 
 // Inicializar Resend solo si hay API key
 let resend = null;
@@ -26,6 +28,8 @@ app.use(cors({
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+// Decodificar token si viene (no obligatorio)
+app.use(authMiddleware);
 
 // Middleware de logging
 app.use((req, res, next) => {
@@ -294,16 +298,19 @@ app.post('/api/auth/login', (req, res) => {
     const user = demoUsers.find(u => u.email === email && u.password === password);
     
     if (user) {
-      const token = `token_${user.id}_${Date.now()}`;
+      const { token, expiresIn } = signToken({ id: user.id, email: user.email, name: user.name, provider: 'credentials' });
       res.json({
         success: true,
         user: { 
           id: user.id, 
           email: user.email, 
           name: user.name,
-          nombre: user.name
+          nombre: user.name,
+          provider: 'credentials'
         },
-        token: token
+        token,
+        token_type: 'Bearer',
+        expiresIn
       });
     } else {
       res.status(401).json({ 
@@ -346,12 +353,13 @@ app.post('/api/auth/google', (req, res) => {
       verified: true
     };
 
-    const token = `google_token_${Date.now()}`;
-    
+    const { token, expiresIn } = signToken({ id: user.id, email: user.email, name: user.name, provider: 'google' });
     res.json({
       success: true,
       user: user,
-      token: token,
+      token,
+      token_type: 'Bearer',
+      expiresIn,
       message: 'Autenticación con Google exitosa'
     });
 
@@ -388,11 +396,14 @@ app.post('/api/register', (req, res) => {
       createdAt: new Date().toISOString()
     };
 
+    const { token, expiresIn } = signToken({ id: newUser.id, email: newUser.email, name: newUser.nombre, provider: 'credentials' });
     res.json({
       success: true,
       message: 'Usuario registrado correctamente',
       user: newUser,
-      token: `token_${newUser.id}_${Date.now()}`
+      token,
+      token_type: 'Bearer',
+      expiresIn
     });
   } catch (error) {
     console.error('❌ Error en registro:', error);
@@ -401,6 +412,19 @@ app.post('/api/register', (req, res) => {
       error: 'Error del servidor' 
     });
   }
+});
+
+// Obtener sesión actual (si token válido)
+app.get('/api/auth/session', (req, res) => {
+  if (!req.user) {
+    return res.status(200).json({ authenticated: false, user: null });
+  }
+  res.json({ authenticated: true, user: req.user });
+});
+
+// Logout (stateless JWT: cliente elimina token)
+app.post('/api/auth/logout', (req, res) => {
+  res.json({ success: true, message: 'Logout realizado (elimine el token en el cliente)' });
 });
 
 // ===== USUARIOS =====
