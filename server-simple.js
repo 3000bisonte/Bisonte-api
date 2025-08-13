@@ -10,6 +10,15 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 // Utilidades JWT
 const { signToken, verifyToken, authMiddleware, requireAuth } = require('./auth-utils');
+let GoogleClient = null;
+try {
+  const { OAuth2Client } = require('google-auth-library');
+  if (process.env.GOOGLE_CLIENT_ID) {
+    GoogleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+  }
+} catch(_e) {
+  console.log('google-auth-library no disponible');
+}
 
 // Inicializar Resend solo si hay API key
 let resend = null;
@@ -330,13 +339,28 @@ app.post('/api/auth/login', (req, res) => {
 });
 
 // Autenticación con Google
-app.post('/api/auth/google', (req, res) => {
+app.post('/api/auth/google', async (req, res) => {
   try {
     console.log('🔐 Google Auth attempt:', req.body);
     
-    const { email, name, picture, googleId } = req.body;
+    const { email, name, picture, googleId, idToken } = req.body;
+
+    // Si llega idToken y hay GoogleClient intentar verificarlo
+    if (idToken && GoogleClient) {
+      try {
+        const ticket = await GoogleClient.verifyIdToken({ idToken, audience: process.env.GOOGLE_CLIENT_ID });
+        const payload = ticket.getPayload();
+        // Alinear datos si no vienen explícitos
+        if (!email) req.body.email = payload.email;
+        if (!name) req.body.name = payload.name;
+      } catch (gErr) {
+        console.warn('⚠️ Verificación de idToken falló, usando datos directos:', gErr.message);
+      }
+    }
+    const finalEmail = req.body.email;
+    const finalName = req.body.name;
     
-    if (!email || !name) {
+  if (!finalEmail || !finalName) {
       return res.status(400).json({
         success: false,
         error: 'Email y nombre son requeridos para Google Auth'
@@ -345,17 +369,17 @@ app.post('/api/auth/google', (req, res) => {
 
     // Simular autenticación con Google exitosa
     const user = {
-      id: `google_${Date.now()}`,
-      email: email,
-      name: name,
-      nombre: name,
-      picture: picture || null,
-      googleId: googleId || `google_${email}`,
+  id: `google_${Date.now()}`,
+  email: finalEmail,
+  name: finalName,
+  nombre: finalName,
+  picture: picture || null,
+  googleId: googleId || `google_${finalEmail}`,
       provider: 'google',
       verified: true
     };
 
-    const { token, expiresIn } = signToken({ id: user.id, email: user.email, name: user.name, provider: 'google' });
+  const { token, expiresIn } = signToken({ id: user.id, email: user.email, name: user.name, provider: 'google' });
     res.json({
       success: true,
       user: user,
@@ -427,6 +451,11 @@ app.get('/api/auth/session', (req, res) => {
 // Logout (stateless JWT: cliente elimina token)
 app.post('/api/auth/logout', (req, res) => {
   res.json({ success: true, message: 'Logout realizado (elimine el token en el cliente)' });
+});
+
+// ===== EJEMPLO DE ENDPOINT PROTEGIDO ESTRICTO =====
+app.get('/api/protegido/demo', requireAuth, (req, res) => {
+  res.json({ success: true, message: 'Acceso autorizado', user: req.user });
 });
 
 // ===== USUARIOS =====
