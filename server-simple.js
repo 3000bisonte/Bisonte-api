@@ -982,18 +982,42 @@ app.use('*', (req, res) => {
   });
 });
 
-// Para Vercel
-if (process.env.VERCEL) {
-  module.exports = app;
-} else {
-  // Para desarrollo local
+// ==== Enumerar rutas registradas para diagnóstico ====
+function listRoutes() {
+  const routes = [];
+  app._router.stack.forEach(mw => {
+    if (mw.route && mw.route.path) {
+      const methods = Object.keys(mw.route.methods).join(',').toUpperCase();
+      routes.push(`${methods} ${mw.route.path}`);
+    } else if (mw.name === 'router' && mw.handle.stack) {
+      mw.handle.stack.forEach(h => {
+        if (h.route && h.route.path) {
+          const methods = Object.keys(h.route.methods).join(',').toUpperCase();
+            routes.push(`${methods} ${h.route.path}`);
+        }
+      });
+    }
+  });
+  console.log('🗺️ Rutas registradas (' + routes.length + '):');
+  routes.sort().forEach(r => console.log('  •', r));
+}
+
+// Exportar siempre (Vercel y otros entornos)
+module.exports = app;
+
+// Solo iniciar servidor local cuando no estamos en Vercel
+if (!process.env.VERCEL) {
   app.listen(PORT, () => {
     console.log(`🚀 Servidor API SIMPLIFICADO corriendo en puerto ${PORT}`);
+    listRoutes();
     console.log(`📍 Health check: http://localhost:${PORT}/`);
-    console.log(`� Envíos: http://localhost:${PORT}/api/envios`);
-    console.log(`� Perfil: http://localhost:${PORT}/api/perfil`);
+    console.log(`📦 Envíos: http://localhost:${PORT}/api/envios`);
+    console.log(`👤 Perfil: http://localhost:${PORT}/api/perfil`);
     console.log(`📧 Contacto: http://localhost:${PORT}/api/contacto`);
     console.log(`💳 MercadoPago: http://localhost:${PORT}/api/mercadopago/status`);
     console.log(`🧪 Test: http://localhost:${PORT}/api/test`);
   });
+} else {
+  // En Vercel: listar rutas al cargar
+  listRoutes();
 }
