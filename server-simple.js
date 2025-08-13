@@ -244,6 +244,8 @@ app.get('/api/test', (req, res) => {
       // Autenticación
       auth_login: '/api/auth/login (POST)',
       auth_google: '/api/auth/google (POST)',
+  auth_session: '/api/auth/session (GET)',
+  auth_logout: '/api/auth/logout (POST)',
       register: '/api/register (POST)',
       // Usuarios
       usuarios: '/api/usuarios (GET/POST)',
