@@ -9,7 +9,7 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 // Utilidades JWT
-const { signToken, verifyToken, authMiddleware, requireAuth, requireAdmin } = require('./auth-utils');
+const { signToken, verifyToken, verifyRefreshToken, authMiddleware, requireAuth, requireAdmin } = require('./auth-utils');
 let GoogleClient = null;
 try {
   const { OAuth2Client } = require('google-auth-library');
@@ -37,6 +37,48 @@ app.use(cors({
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// Rate limiting básico (en memoria)
+const rateLimitMap = new Map();
+const RATE_LIMIT_WINDOW = 15 * 60 * 1000; // 15 minutos
+const RATE_LIMIT_MAX = 100; // 100 requests por ventana
+
+app.use((req, res, next) => {
+  const ip = req.ip || req.connection.remoteAddress || 'unknown';
+  const now = Date.now();
+  const windowStart = now - RATE_LIMIT_WINDOW;
+  
+  if (!rateLimitMap.has(ip)) {
+    rateLimitMap.set(ip, []);
+  }
+  
+  const requests = rateLimitMap.get(ip);
+  // Limpiar requests antiguos
+  const recentRequests = requests.filter(time => time > windowStart);
+  
+  if (recentRequests.length >= RATE_LIMIT_MAX) {
+    return res.status(429).json({
+      success: false,
+      error: 'Demasiadas solicitudes. Intente nuevamente en 15 minutos.',
+      retryAfter: Math.ceil((recentRequests[0] + RATE_LIMIT_WINDOW - now) / 1000)
+    });
+  }
+  
+  recentRequests.push(now);
+  rateLimitMap.set(ip, recentRequests);
+  
+  // Limpiar IPs obsoletas cada 100 requests
+  if (Math.random() < 0.01) {
+    for (const [checkIp, times] of rateLimitMap.entries()) {
+      if (times.every(time => time <= windowStart)) {
+        rateLimitMap.delete(checkIp);
+      }
+    }
+  }
+  
+  next();
+});
+
 // Decodificar token si viene (no obligatorio)
 app.use(authMiddleware);
 
@@ -255,6 +297,7 @@ app.get('/api/test', (req, res) => {
       auth_google: '/api/auth/google (POST)',
   auth_session: '/api/auth/session (GET)',
   auth_logout: '/api/auth/logout (POST)',
+  auth_refresh: '/api/auth/refresh (POST - renovar tokens)',
   protegido_demo: '/api/protegido/demo (GET - requiere Bearer token)',
       register: '/api/register (POST)',
       // Usuarios
@@ -312,7 +355,12 @@ app.post('/api/auth/login', (req, res) => {
     const user = demoUsers.find(u => u.email === email && u.password === password);
     
     if (user) {
-      const { token, expiresIn, role } = signToken({ id: user.id, email: user.email, name: user.name, provider: 'credentials' });
+      const { token, refreshToken, expiresIn, refreshExpiresIn, role } = signToken({ 
+        id: user.id, 
+        email: user.email, 
+        name: user.name, 
+        provider: 'credentials' 
+      });
       res.json({
         success: true,
         user: { 
@@ -324,8 +372,10 @@ app.post('/api/auth/login', (req, res) => {
           role: role
         },
         token,
+        refreshToken,
         token_type: 'Bearer',
         expiresIn,
+        refreshExpiresIn,
         role
       });
     } else {
@@ -384,13 +434,20 @@ app.post('/api/auth/google', async (req, res) => {
       verified: true
     };
 
-  const { token, expiresIn, role } = signToken({ id: user.id, email: user.email, name: user.name, provider: 'google' });
+  const { token, refreshToken, expiresIn, refreshExpiresIn, role } = signToken({ 
+    id: user.id, 
+    email: user.email, 
+    name: user.name, 
+    provider: 'google' 
+  });
     res.json({
       success: true,
       user: { ...user, role },
       token,
+      refreshToken,
       token_type: 'Bearer',
       expiresIn,
+      refreshExpiresIn,
       role,
       message: 'Autenticación con Google exitosa'
     });
@@ -428,14 +485,21 @@ app.post('/api/register', (req, res) => {
       createdAt: new Date().toISOString()
     };
 
-    const { token, expiresIn, role } = signToken({ id: newUser.id, email: newUser.email, name: newUser.nombre, provider: 'credentials' });
+    const { token, refreshToken, expiresIn, refreshExpiresIn, role } = signToken({ 
+      id: newUser.id, 
+      email: newUser.email, 
+      name: newUser.nombre, 
+      provider: 'credentials' 
+    });
     res.json({
       success: true,
       message: 'Usuario registrado correctamente',
       user: { ...newUser, role },
       token,
+      refreshToken,
       token_type: 'Bearer',
       expiresIn,
+      refreshExpiresIn,
       role
     });
   } catch (error) {
@@ -458,6 +522,54 @@ app.get('/api/auth/session', (req, res) => {
 // Logout (stateless JWT: cliente elimina token)
 app.post('/api/auth/logout', (req, res) => {
   res.json({ success: true, message: 'Logout realizado (elimine el token en el cliente)' });
+});
+
+// Refresh token endpoint
+app.post('/api/auth/refresh', (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+    
+    if (!refreshToken) {
+      return res.status(400).json({
+        success: false,
+        error: 'Refresh token requerido'
+      });
+    }
+    
+    const decoded = verifyRefreshToken(refreshToken);
+    if (!decoded) {
+      return res.status(401).json({
+        success: false,
+        error: 'Refresh token inválido o expirado'
+      });
+    }
+    
+    // Generar nuevos tokens
+    const { token, refreshToken: newRefreshToken, expiresIn, refreshExpiresIn, role } = signToken({
+      id: decoded.sub,
+      email: decoded.email,
+      name: decoded.name || '',
+      provider: 'refresh'
+    });
+    
+    res.json({
+      success: true,
+      token,
+      refreshToken: newRefreshToken,
+      token_type: 'Bearer',
+      expiresIn,
+      refreshExpiresIn,
+      role,
+      message: 'Tokens renovados exitosamente'
+    });
+    
+  } catch (error) {
+    console.error('❌ Error en refresh:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error del servidor'
+    });
+  }
 });
 
 // ===== EJEMPLO DE ENDPOINT PROTEGIDO ESTRICTO =====

@@ -26,14 +26,41 @@ function signToken(user, opts = {}) {
     provider: user.provider || 'credentials',
     role: role
   };
-  const expiresIn = opts.expiresIn || '7d';
-  const token = jwt.sign(payload, getSecret(), { expiresIn });
-  return { token, expiresIn, role };
+  
+  // Token de acceso (corta duración)
+  const accessToken = jwt.sign(payload, getSecret(), { expiresIn: opts.accessExpiresIn || '15m' });
+  
+  // Token de refresh (larga duración)
+  const refreshPayload = {
+    sub: user.id,
+    email: user.email,
+    type: 'refresh',
+    role: role
+  };
+  const refreshToken = jwt.sign(refreshPayload, getSecret(), { expiresIn: opts.refreshExpiresIn || '7d' });
+  
+  return { 
+    token: accessToken, 
+    refreshToken,
+    expiresIn: opts.accessExpiresIn || '15m',
+    refreshExpiresIn: opts.refreshExpiresIn || '7d',
+    role 
+  };
 }
 
 function verifyToken(token) {
   try {
     return jwt.verify(token, getSecret());
+  } catch(_e) {
+    return null;
+  }
+}
+
+function verifyRefreshToken(refreshToken) {
+  try {
+    const decoded = jwt.verify(refreshToken, getSecret());
+    if (decoded.type !== 'refresh') return null;
+    return decoded;
   } catch(_e) {
     return null;
   }
@@ -74,6 +101,7 @@ function requireAdmin(req, res, next) {
 module.exports = {
   signToken,
   verifyToken,
+  verifyRefreshToken,
   authMiddleware,
   requireAuth,
   requireAdmin,
