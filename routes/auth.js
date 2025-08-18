@@ -2,6 +2,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { Pool } = require('pg');
+const fetch = require('node-fetch'); // Para OAuth requests a Google
 
 const router = express.Router();
 
@@ -275,6 +276,94 @@ router.get('/session', verifyToken, (req, res) => {
     success: true,
     user: req.user
   });
+});
+
+// Ruta para intercambio de código OAuth de Google (APK nativo)
+router.post('/google/exchange', async (req, res) => {
+  try {
+    const { code, redirect_uri } = req.body;
+    
+    if (!code) {
+      return res.status(400).json({
+        success: false,
+        error: 'Código de autorización requerido'
+      });
+    }
+
+    console.log('🔄 Intercambiando código OAuth de Google para APK...');
+    
+    // Intercambiar código por token con Google
+    const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        client_id: process.env.GOOGLE_CLIENT_ID || "108242889910-n3ptem16orktkl0klv8onlttfl83r1ul.apps.googleusercontent.com",
+        client_secret: process.env.GOOGLE_CLIENT_SECRET || "",
+        code: code,
+        grant_type: 'authorization_code',
+        redirect_uri: redirect_uri || 'com.bisonte.logistica://auth/google/callback'
+      }),
+    });
+
+    const tokenData = await tokenResponse.json();
+    
+    if (!tokenResponse.ok) {
+      console.error('❌ Error al intercambiar código:', tokenData);
+      return res.status(400).json({
+        success: false,
+        error: 'Error al obtener token de Google'
+      });
+    }
+
+    // Obtener información del usuario
+    const userResponse = await fetch(`https://www.googleapis.com/oauth2/v2/userinfo?access_token=${tokenData.access_token}`);
+    const userData = await userResponse.json();
+    
+    if (!userResponse.ok) {
+      console.error('❌ Error al obtener datos del usuario:', userData);
+      return res.status(400).json({
+        success: false,
+        error: 'Error al obtener datos del usuario'
+      });
+    }
+
+    console.log('✅ Usuario autenticado via OAuth APK:', userData.email);
+
+    // Crear credential compatible con el sistema existente
+    const credential = {
+      clientId: process.env.GOOGLE_CLIENT_ID || "108242889910-n3ptem16orktkl0klv8onlttfl83r1ul.apps.googleusercontent.com",
+      credential: tokenData.id_token,
+      select_by: 'auto',
+      // Datos adicionales del usuario
+      user: {
+        id: userData.id,
+        email: userData.email,
+        name: userData.name,
+        picture: userData.picture,
+        verified_email: userData.verified_email
+      },
+      tokens: {
+        access_token: tokenData.access_token,
+        id_token: tokenData.id_token,
+        refresh_token: tokenData.refresh_token,
+        expires_in: tokenData.expires_in
+      }
+    };
+
+    res.json({
+      success: true,
+      credential: credential
+    });
+
+  } catch (error) {
+    console.error('❌ Error en intercambio OAuth:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error interno del servidor'
+    });
+  }
 });
 
 module.exports = router;
