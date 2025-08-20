@@ -8,6 +8,15 @@ const config: CapacitorConfig = {
     url: 'https://www.bisonteapp.com',
     cleartext: false
   },
+  android: {
+    allowMixedContent: true,
+    webContentsDebuggingEnabled: true,
+    backgroundColor: '#ffffff'
+  },
+  ios: {
+    scheme: 'Bisonte App',
+    contentInset: 'automatic'
+  },
   plugins: {
     SplashScreen: {
       launchShowDuration: 2000,
@@ -45,7 +54,7 @@ const config: CapacitorConfig = {
   android: {
     allowMixedContent: true,
     captureInput: true,
-    webContentsDebuggingEnabled: true,
+    webContentsDebuggingEnabled: true, // Enable for debugging APK
     backgroundColor: '#ffffff'
   },
   ios: {

@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { Capacitor } from '@capacitor/core';
+import { getGoogleClientId, isProductionEnvironment } from '../utils/googleConfig';
 
 export default function GoogleSignInButton({ clientId, onCredential, useRedirect = true }) {
   const divRef = useRef(null);
@@ -14,7 +15,7 @@ export default function GoogleSignInButton({ clientId, onCredential, useRedirect
 
   useEffect(() => {
     setIsCapacitor(Capacitor.isNativePlatform());
-
+    
     // Debug info para troubleshooting
     if (typeof window !== 'undefined') {
       console.log('GoogleSignInButton Debug:', {
@@ -31,36 +32,16 @@ export default function GoogleSignInButton({ clientId, onCredential, useRedirect
   // Fetch del clientId si no está disponible como prop
   useEffect(() => {
     if (!clientId && !runtimeClientId) {
-      // En lugar de usar fetch, usar el ID hardcodeado inmediatamente en Capacitor
-      if (isCapacitor) {
-        const fallbackClientId = "108242889910-n3ptem16orktkl0klv8onlttfl83r1ul.apps.googleusercontent.com";
-        setRuntimeClientId(fallbackClientId);
-        console.log('Capacitor detectado - usando Google Client ID hardcodeado inmediatamente');
-        return;
-      }
-
-      // Solo en web browser, intentar fetch
-      fetch('/api/public/config')
-        .then(res => res.json())
-        .then(data => {
-          if (data.googleClientId) {
-            setRuntimeClientId(data.googleClientId);
-            console.log('Google Client ID obtenido del servidor:', data.googleClientId.substring(0, 10) + '...');
-          } else {
-            console.error('No se pudo obtener Google Client ID del servidor');
-            // Fallback hardcodeado para APK en caso de emergencia
-            const fallbackClientId = "108242889910-n3ptem16orktkl0klv8onlttfl83r1ul.apps.googleusercontent.com";
-            setRuntimeClientId(fallbackClientId);
-            console.log('Usando Google Client ID hardcodeado como fallback');
-          }
-        })
-        .catch(err => {
-          console.error('Error obteniendo config:', err);
-          // Fallback hardcodeado para APK en caso de emergencia
-          const fallbackClientId = "108242889910-n3ptem16orktkl0klv8onlttfl83r1ul.apps.googleusercontent.com";
-          setRuntimeClientId(fallbackClientId);
-          console.log('Error de red - usando Google Client ID hardcodeado como fallback');
-        });
+      // Usar la utilidad para obtener el Client ID correcto
+      const correctClientId = getGoogleClientId();
+      setRuntimeClientId(correctClientId);
+      
+      console.log('Google Client ID configurado:', {
+        clientId: correctClientId.substring(0, 10) + '...',
+        isProduction: isProductionEnvironment(),
+        hostname: typeof window !== 'undefined' ? window.location.hostname : 'server-side',
+        isCapacitor: Capacitor.isNativePlatform()
+      });
     }
   }, [clientId, runtimeClientId, isCapacitor]);
 
@@ -71,15 +52,15 @@ export default function GoogleSignInButton({ clientId, onCredential, useRedirect
       console.error('No hay Client ID disponible para OAuth');
       return;
     }
-
+    
     // Para APK local, usar la URL de producción para callback
     const baseUrl = isCapacitor ? 'https://www.bisonteapp.com' : window.location.origin;
     const googleAuthUrl = `https://accounts.google.com/oauth/authorize?client_id=${clientIdToUse}&redirect_uri=${encodeURIComponent(baseUrl + '/auth/google/callback')}&response_type=code&scope=openid%20profile%20email&access_type=offline&prompt=select_account`;
-
+    
     console.log('Redirigiendo a Google OAuth con URL:', googleAuthUrl.substring(0, 100) + '...');
     console.log('Client ID usado:', clientIdToUse.substring(0, 10) + '...');
     console.log('Redirect URI:', baseUrl + '/auth/google/callback');
-
+    
     // Abrir Google OAuth
     window.location.href = googleAuthUrl;
   };
@@ -96,7 +77,7 @@ export default function GoogleSignInButton({ clientId, onCredential, useRedirect
           loaderRef.current.innerText = 'Cargando método alternativo...';
         }
       }, 1500); // Más rápido en WebView
-
+      
       return () => clearTimeout(fallbackTimer);
     }
 
@@ -109,7 +90,7 @@ export default function GoogleSignInButton({ clientId, onCredential, useRedirect
     // Evitar insertar múltiples veces el SDK
     const existing = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
     const script = existing || document.createElement("script");
-
+    
     if (!existing) {
       console.log('Cargando Google Identity Services SDK...');
       script.src = "https://accounts.google.com/gsi/client";
@@ -118,7 +99,7 @@ export default function GoogleSignInButton({ clientId, onCredential, useRedirect
     } else {
       console.log('Google Identity Services SDK ya existe en el DOM');
     }
-
+    
     let timeoutId = setTimeout(() => {
       // Si no carga en 2s en Capacitor, mostrar fallback
       if (isCapacitor) {
@@ -128,31 +109,31 @@ export default function GoogleSignInButton({ clientId, onCredential, useRedirect
         loaderRef.current.innerText = 'Google no disponible. Usa el botón alternativo.';
       }
     }, isCapacitor ? 2000 : 5000);
-
+    
     script.onload = () => {
       console.log('Google Identity Services SDK cargado exitosamente');
       if (loaderRef.current) loaderRef.current.style.display = 'none';
       clearTimeout(timeoutId);
-
+      
       // Dar un momento para que el SDK se inicialice completamente
       setTimeout(() => {
-
+      
       try {
         if (window.google?.accounts?.id) {
           console.log('Inicializando Google Identity Services...');
           console.log('Client ID:', effectiveClientId.substring(0, 10) + '...');
           console.log('Origin:', window.location.origin);
-
+          
           window.google.accounts.id.initialize({
             client_id: effectiveClientId,
-            callback: (response) => {
+            callback: (response) => { 
               console.log('Google GIS callback recibido:', response);
               if (response.credential) {
                 // Redirigir directamente al callback con el credential
                 const callbackUrl = new URL('/auth/google/callback', window.location.origin);
                 callbackUrl.searchParams.set('credential', response.credential);
                 callbackUrl.searchParams.set('auth_type', 'gis');
-
+                
                 console.log('Redirigiendo a callback con credential GIS...');
                 window.location.href = callbackUrl.href;
               } else {
@@ -162,9 +143,9 @@ export default function GoogleSignInButton({ clientId, onCredential, useRedirect
             auto_select: false,
             ux_mode: "popup",
           });
-
+          
           console.log('Google Identity Services inicializado correctamente');
-
+          
           if (divRef.current) {
             console.log('Renderizando botón de Google...');
             window.google.accounts.id.renderButton(divRef.current, {
@@ -191,7 +172,7 @@ export default function GoogleSignInButton({ clientId, onCredential, useRedirect
           googleAccounts: window.google?.accounts ? 'PRESENTE' : 'AUSENTE',
           googleId: window.google?.accounts?.id ? 'PRESENTE' : 'AUSENTE'
         });
-
+        
         // En cualquier error, mostrar fallback
         setShowFallback(true);
         if (loaderRef.current) {
@@ -200,7 +181,7 @@ export default function GoogleSignInButton({ clientId, onCredential, useRedirect
       }
       }, 500); // Dar 500ms para que el SDK se inicialice
     };
-
+    
     script.onerror = (error) => {
       console.error('Error cargando Google Identity Services SDK:', error);
       clearTimeout(timeoutId);
@@ -209,9 +190,9 @@ export default function GoogleSignInButton({ clientId, onCredential, useRedirect
         loaderRef.current.innerText = 'Error cargando Google SDK. Usa método alternativo.';
       }
     };
-
+    
     if (!existing) document.head.appendChild(script);
-
+    
     return () => {
       try {
         if (!existing && script.parentNode) script.parentNode.removeChild(script);
@@ -248,17 +229,17 @@ export default function GoogleSignInButton({ clientId, onCredential, useRedirect
           🔧 Capacitor WebView | Client ID: {effectiveClientId ? '✅' : '❌'}
         </div>
       )}
-
+      
       {/* Botón principal de Google GIS - solo mostrar en web cuando NO es Capacitor */}
       {!isCapacitor && !showFallback && (
         <div ref={divRef} style={{ display: 'block' }} />
       )}
-
+      
       {/* Loader mientras carga - solo en web */}
       {!isCapacitor && (
         <div ref={loaderRef} className="hidden items-center justify-center text-xs text-gray-400" style={{minHeight: 20}} />
       )}
-
+      
       {/* Botón manual - SIEMPRE en Capacitor, también como fallback en web */}
       {(isCapacitor || showFallback) && effectiveClientId && (
         <button
@@ -270,7 +251,7 @@ export default function GoogleSignInButton({ clientId, onCredential, useRedirect
           <span>Continuar con Google</span>
         </button>
       )}
-
+      
       {/* Mensaje si no hay Client ID en Capacitor */}
       {isCapacitor && !effectiveClientId && (
         <div className="w-[320px] h-12 flex items-center justify-center gap-3 rounded-full border border-red-300 bg-red-50 text-red-600 font-medium">
@@ -278,19 +259,19 @@ export default function GoogleSignInButton({ clientId, onCredential, useRedirect
           <span>Google no configurado</span>
         </div>
       )}
-
+      
       {/* Enlaces de ayuda */}
       <div className="flex gap-3 text-xs">
-        <button
-          type="button"
-          onClick={() => window.location.reload()}
+        <button 
+          type="button" 
+          onClick={() => window.location.reload()} 
           className="text-gray-300 underline hover:text-gray-100"
         >
           Recargar página
         </button>
         {effectiveClientId && (
-          <button
-            type="button"
+          <button 
+            type="button" 
             onClick={handleManualGoogleLogin}
             className="text-teal-300 underline hover:text-teal-100"
           >
@@ -307,7 +288,7 @@ function GoogleIcon() {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" className="w-5 h-5">
       <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303C33.676 31.658 29.223 35 24 35c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.156 7.961 3.039l5.657-5.657C34.868 5.053 29.7 3 24 3 12.955 3 4 11.955 4 23s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.651-.389-3.917z"/>
-      <path fill="#FF3D00" d="M6.306 14.691l6.571 4.817C14.215 16.108 18.714 13 24 13c3.059 0 5.842 1.156 7.961 3.039l5.657-5.657C34.868 5.053 29.7 3 24 3 16.318 3 9.656 7.337 6.306 14.691z"/>
+      <path fill="#FF3D00" d="M6.306 14.691l6.571 4.817C14.2 16.108 18.714 13 24 13c3.059 0 5.842 1.156 7.961 3.039l5.657-5.657C34.868 5.053 29.7 3 24 3 16.318 3 9.656 7.337 6.306 14.691z"/>
       <path fill="#4CAF50" d="M24 43c5.166 0 9.86-1.977 13.409-5.196l-6.2-5.238C29.223 35 24.67 37 24 37c-5.196 0-9.619-3.317-11.221-7.946l-6.537 5.034C9.541 39.965 16.229 43 24 43z"/>
       <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303c-1.104 3.178-4.538 6-11.303 6-5.196 0-9.619-3.317-11.221-7.946l-6.537 5.034C9.541 39.965 16.229 43 24 43c8.837 0 16-5.373 16-12 0-1.341-.138-2.651-.389-3.917z"/>
     </svg>

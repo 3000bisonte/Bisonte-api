@@ -1,18 +1,13 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Exportación estática para Capacitor
-  output: 'export',
-  trailingSlash: true,
-  assetPrefix: '',
-  basePath: '',
-  images: { unoptimized: true },
+  // Configuración para Capacitor sin export estático
   typescript: { ignoreBuildErrors: true },
   eslint: { ignoreDuringBuilds: true },
   // Production optimizations
   compress: true,
   poweredByHeader: false,
   generateEtags: false,
-  // Configuración específica para evitar errores de prerenderizado
+  // Configuración para SSR con Capacitor
   experimental: {
     isrMemoryCacheSize: 0,
   },
