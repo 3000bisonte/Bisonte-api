@@ -7,6 +7,7 @@ import { useMobileSession } from "@/hooks/useMobileSession";
 import GoogleSignInButtonNative from "@/components/GoogleSignInButtonNative";
 import GoogleSignInButton from "@/components/GoogleSignInButton";
 import { Capacitor } from '@capacitor/core';
+import { getGoogleClientId } from "@/utils/googleConfig";
 
 const LoginForm = () => {
   const [email, setEmail] = useState("");
@@ -311,7 +312,7 @@ const LoginForm = () => {
             {/* Google Button (Redirect) */}
             <div className="flex justify-center">
               <GoogleSignInButton
-                clientId="831420252741-4191330gjs69hkm4jr55rig3d8ouas0f.apps.googleusercontent.com"
+                clientId={getGoogleClientId()}
                 useRedirect={true}
                 onCredential={async (credential) => {
                   try {

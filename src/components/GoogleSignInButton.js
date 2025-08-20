@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { Capacitor } from '@capacitor/core';
+import { getGoogleClientId, isProductionEnvironment } from '../utils/googleConfig';
 
 export default function GoogleSignInButton({ clientId, onCredential, useRedirect = true }) {
   const divRef = useRef(null);
@@ -31,36 +32,16 @@ export default function GoogleSignInButton({ clientId, onCredential, useRedirect
   // Fetch del clientId si no está disponible como prop
   useEffect(() => {
     if (!clientId && !runtimeClientId) {
-      // En lugar de usar fetch, usar el ID hardcodeado inmediatamente en Capacitor
-      if (isCapacitor) {
-        const fallbackClientId = "831420252741-4191330gjs69hkm4jr55rig3d8ouas0f.apps.googleusercontent.com";
-        setRuntimeClientId(fallbackClientId);
-        console.log('Capacitor detectado - usando Google Client ID hardcodeado inmediatamente');
-        return;
-      }
+      // Usar la utilidad para obtener el Client ID correcto
+      const correctClientId = getGoogleClientId();
+      setRuntimeClientId(correctClientId);
       
-      // Solo en web browser, intentar fetch
-      fetch('/api/public/config')
-        .then(res => res.json())
-        .then(data => {
-          if (data.googleClientId) {
-            setRuntimeClientId(data.googleClientId);
-            console.log('Google Client ID obtenido del servidor:', data.googleClientId.substring(0, 10) + '...');
-          } else {
-            console.error('No se pudo obtener Google Client ID del servidor');
-            // Fallback hardcodeado para APK en caso de emergencia
-            const fallbackClientId = "831420252741-4191330gjs69hkm4jr55rig3d8ouas0f.apps.googleusercontent.com";
-            setRuntimeClientId(fallbackClientId);
-            console.log('Usando Google Client ID hardcodeado como fallback');
-          }
-        })
-        .catch(err => {
-          console.error('Error obteniendo config:', err);
-          // Fallback hardcodeado para APK en caso de emergencia
-          const fallbackClientId = "831420252741-4191330gjs69hkm4jr55rig3d8ouas0f.apps.googleusercontent.com";
-          setRuntimeClientId(fallbackClientId);
-          console.log('Error de red - usando Google Client ID hardcodeado como fallback');
-        });
+      console.log('Google Client ID configurado:', {
+        clientId: correctClientId.substring(0, 10) + '...',
+        isProduction: isProductionEnvironment(),
+        hostname: typeof window !== 'undefined' ? window.location.hostname : 'server-side',
+        isCapacitor: Capacitor.isNativePlatform()
+      });
     }
   }, [clientId, runtimeClientId, isCapacitor]);
 
