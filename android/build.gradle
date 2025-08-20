@@ -1,0 +1,69 @@
+// Top-level build file where you can add configuration options common to all sub-projects/modules.
+
+buildscript {
+    
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.2.0'
+        classpath 'com.google.gms:google-services:4.4.2'
+    classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.24'
+
+        // NOTE: Do not place your application dependencies here; they belong
+        // in the individual module build.gradle files
+    }
+}
+
+apply from: "variables.gradle"
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    
+    // Forzar Java 17 en todos los subproyectos de manera más agresiva
+    tasks.withType(JavaCompile).configureEach {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+    
+    // Configuración adicional para Android
+    afterEvaluate { project ->
+        if (project.hasProperty('android')) {
+            project.android {
+                compileOptions {
+                    sourceCompatibility JavaVersion.VERSION_17
+                    targetCompatibility JavaVersion.VERSION_17
+                }
+            }
+        }
+
+        // Forzar Kotlin a compilar con JVM target 17 en todos los módulos
+        try {
+            tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+                // API clásica
+                kotlinOptions {
+                    jvmTarget = '17'
+                }
+                // API moderna (si está disponible en la versión del plugin)
+                try {
+                    compilerOptions {
+                        // org.jetbrains.kotlin.gradle.dsl.JvmTarget
+                        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+                    }
+                } catch (Exception ignored) {
+                    // Ignorar si no existe compilerOptions en esta versión
+                }
+            }
+        } catch (Exception ignored) {
+            // Ignorar si la clase KotlinCompile no está disponible en algún submódulo
+        }
+    }
+}
+
+task clean(type: Delete) {
+    delete rootProject.buildDir
+}

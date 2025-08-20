@@ -1,0 +1,31 @@
+# Exclude large, unnecessary files from Vercel upload
+# Vercel builds in the cloud; these paths are not needed for the deployment bundle
+
+# Native platforms
+android/
+ios/
+*.apk
+*.aab
+
+# Local APK and tooling
+BisonteApp.apk
+adb/
+
+# Backend code (separate deployment)
+api-server/
+backend-api/
+
+# Node modules (installed on Vercel)
+node_modules/
+
+# Build outputs and caches
+.next/
+out/
+.cache/
+.tmp/
+
+# VCS & misc
+.git/
+.gitignore
+.vscode/
+*.log

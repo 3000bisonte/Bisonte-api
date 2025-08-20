@@ -1,0 +1,69 @@
+# Dependencies
+node_modules/
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.production
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Vercel
+.vercel
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Next.js build output
+.next/
+out/
+
+# OAuth configuration files (contains sensitive data)
+public/config/oauth-config.js
+public/debug-oauth.html
+.env*
+!.env.example
+
+# Build/Deploy scripts with credentials
+configure-oauth-production.sh
+configure-oauth-production.bat
+
+# Android/Capacitor outputs
+android/.next/
+android/app/src/main/assets/public/
+android/app/build/
+android/build/
+android/keystore-backups/
+android/app/*.keystore
+android/app/*.jks
+android/*.keystore
+android/*.jks
+BisonteApp.apk
+
+# Expo/React Native (if present)
+mobile/.expo/
+mobile/.expo-shared/
+mobile/android/app/build/
+mobile/android/build/
+mobile/ios/build/
+mobile/ios/Pods/

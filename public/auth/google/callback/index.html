@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Procesando Autenticación - Bisonte</title>
+    <!-- Evitar cache en esta página crítica -->
+    <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <!-- No secrets on client; backend external handles exchanges -->
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 0; }
+        .bg-gradient { background: linear-gradient(135deg, #3b82f6, #8b5cf6); min-height: 100vh; }
+        .container { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 1rem; }
+        .card { background: white; border-radius: 0.5rem; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); padding: 2rem; max-width: 32rem; width: 100%; }
+        .title { font-size: 1.875rem; font-weight: bold; margin-bottom: 1.5rem; text-align: center; color: #2563eb; }
+        .spinner { display: inline-block; width: 4rem; height: 4rem; border: 4px solid #e5e7eb; border-top: 4px solid #3b82f6; border-radius: 50%; margin-bottom: 1rem; }
+        .status { color: #1f2937; text-align: center; font-weight: 600; font-size: 1.125rem; margin-bottom: 1.5rem; }
+        .description { font-size: 0.875rem; color: #6b7280; text-align: center; margin-bottom: 1.5rem; }
+        .debug-section { margin-top: 2rem; }
+        .debug-title { font-size: 1.125rem; font-weight: 600; margin-bottom: 0.75rem; color: #374151; }
+        .debug-log { background: #111827; color: #10b981; padding: 1rem; border-radius: 0.25rem; font-family: 'Courier New', monospace; font-size: 0.75rem; overflow-y: auto; max-height: 10rem; }
+        .manual-redirect { margin-top: 1.5rem; text-align: center; display: none; }
+        .btn { background: #10b981; color: white; font-weight: bold; padding: 0.75rem 2rem; border-radius: 0.5rem; font-size: 1.125rem; border: none; cursor: pointer; transition: background-color 0.2s; }
+        .btn:hover { background: #059669; }
+        .animate-spin { animation: spin 1s linear infinite; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    </style>
+    <style>
+        .animate-spin {
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gradient">
+    <div class="container">
+        <div class="card">
+            <h1 class="title">
+                🔐 Procesando Autenticación
+            </h1>
+            
+            <div style="display: flex; flex-direction: column; align-items: center; margin-bottom: 1.5rem;">
+                <div class="spinner animate-spin"></div>
+                <p class="status" id="status">
+                    Conectando con Google...
+                </p>
+            </div>
+
+            <div class="description">
+                Esta página procesará automáticamente tu autenticación con Google.
+            </div>
+
+            <div class="debug-section">
+                <h2 class="debug-title">🔍 Log del Proceso:</h2>
+                <div class="debug-log" id="debug-log">
+                    <div style="color: #6b7280;">Iniciando proceso de autenticación...</div>
+                </div>
+            </div>
+
+            <div class="manual-redirect" id="manual-redirect">
+                <button onclick="manualRedirect()" class="btn">
+                    🏠 IR AL HOME AHORA
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Variables globales
+        let debugLog = [];
+        const statusEl = document.getElementById('status');
+        const debugLogEl = document.getElementById('debug-log');
+        const manualRedirectEl = document.getElementById('manual-redirect');
+
+        // Función para añadir mensajes de debug
+        function addDebugMessage(message) {
+            const timestamp = new Date().toISOString().substring(11, 19);
+            const logMessage = `${timestamp}: ${message}`;
+            console.log("🔥 CALLBACK EXTREME DEBUG:", logMessage);
+            
+            debugLog.push(logMessage);
+            
+            // Mostrar en el DOM
+            const logDiv = document.createElement('div');
+            logDiv.className = 'mb-1';
+            logDiv.textContent = logMessage;
+            debugLogEl.appendChild(logDiv);
+            debugLogEl.scrollTop = debugLogEl.scrollHeight;
+        }
+
+        // Función de redirección manual
+        function manualRedirect() {
+            addDebugMessage("🔄 REDIRECCIÓN MANUAL ACTIVADA");
+            try {
+                window.location.replace('/home');
+            } catch (e) {
+                addDebugMessage(`Error en redirección manual: ${e.message}`);
+                window.location.href = '/home';
+            }
+        }
+
+        // Función para manejar flujo GIS (Google Identity Services)
+        async function handleGISFlow(credential) {
+            try {
+                statusEl.textContent = 'Procesando credential de Google Identity Services...';
+                addDebugMessage(`✅ CREDENTIAL GIS RECIBIDO: ${credential.substring(0, 20)}...`);
+
+                // Decodificar el ID Token para obtener información del usuario
+                const tokenParts = credential.split('.');
+                if (tokenParts.length !== 3) {
+                    throw new Error('Invalid JWT format');
+                }
+
+                // Decodificación base64url segura
+                function base64UrlDecode(input) {
+                    const pad = (4 - (input.length % 4)) % 4;
+                    const normalized = input.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat(pad);
+                    try {
+                        return atob(normalized);
+                    } catch (e) {
+                        addDebugMessage(`❌ Error atob: ${e.message}`);
+                        throw e;
+                    }
+                }
+
+                const payload = JSON.parse(base64UrlDecode(tokenParts[1]));
+                addDebugMessage(`👤 Usuario: ${payload.email} (${payload.name})`);
+
+                // Crear datos de sesión desde el ID Token
+                const userData = {
+                    id: payload.sub,
+                    email: payload.email,
+                    name: payload.name,
+                    picture: payload.picture,
+                    verified_email: payload.email_verified
+                };
+
+                const sessionData = {
+                    id: payload.sub,
+                    email: payload.email,
+                    name: payload.name,
+                    picture: payload.picture,
+                    verified_email: payload.email_verified,
+                    id_token: credential,
+                    expires_at: payload.exp * 1000,
+                    created_at: Date.now()
+                };
+
+                const mobileSessionData = {
+                    user: userData,
+                    token: credential,
+                    expires: new Date(payload.exp * 1000).toISOString(),
+                    created: new Date().toISOString(),
+                    type: 'gis'
+                };
+
+                statusEl.textContent = 'Guardando sesión GIS...';
+                addDebugMessage("=== GUARDANDO SESIÓN GIS EN LOCALSTORAGE ===");
+
+                // Limpiar localStorage previo
+                const keysToRemove = ['google_auth_data', 'session_data', 'authToken', 'user', 'bisonte_mobile_session'];
+                keysToRemove.forEach(key => {
+                    try {
+                        localStorage.removeItem(key);
+                        addDebugMessage(`Removido: ${key}`);
+                    } catch (e) {
+                        addDebugMessage(`Error removiendo ${key}: ${e.message}`);
+                    }
+                });
+
+                // Guardar en múltiples formatos
+                localStorage.setItem('google_auth_data', JSON.stringify({ user: userData, tokens: { id_token: credential }, timestamp: Date.now() }));
+                localStorage.setItem('session_data', JSON.stringify(sessionData));
+                localStorage.setItem('bisonte_mobile_session', JSON.stringify(mobileSessionData));
+                localStorage.setItem('authToken', credential);
+                localStorage.setItem('user', JSON.stringify(userData));
+                localStorage.setItem('user_email', userData.email);
+                localStorage.setItem('user_name', userData.name);
+                localStorage.setItem('auth_timestamp', Date.now().toString());
+                localStorage.setItem('auth_success', 'true');
+                localStorage.setItem('oauth_completed', 'true');
+                localStorage.setItem('auth_type', 'gis');
+
+                addDebugMessage("💾 SESIÓN GIS GUARDADA EXITOSAMENTE");
+
+                statusEl.textContent = '¡Autenticación GIS exitosa! Redirigiendo...';
+                addDebugMessage("✅ AUTENTICACIÓN GIS COMPLETADA");
+
+                // Mostrar botón de redirección manual
+                manualRedirectEl.style.display = 'block';
+
+                // Redirigir automáticamente
+                setTimeout(() => {
+                    addDebugMessage("🚀 Intento de redirección automática...");
+                    try {
+                        window.location.replace('/home');
+                    } catch (e) {
+                        addDebugMessage(`❌ Error en redirección automática: ${e.message}`);
+                        window.location.href = '/home';
+                    }
+                }, 2000);
+
+                return true;
+
+            } catch (error) {
+                statusEl.textContent = 'Error procesando credential GIS';
+                addDebugMessage(`❌ ERROR GIS: ${error.message}`);
+                
+                setTimeout(() => {
+                    addDebugMessage("Redirigiendo a login por error GIS...");
+                    window.location.href = '/login';
+                }, 3000);
+                
+                return false;
+            }
+        }
+
+        // Función principal de manejo del callback
+        async function handleCallback() {
+            try {
+                statusEl.textContent = 'Procesando respuesta de Google...';
+                addDebugMessage("=== INICIO DEL CALLBACK ===");
+                addDebugMessage(`URL: ${window.location.href}`);
+
+                // DEBUGGING EXTREMO DE URL
+                addDebugMessage(`URL completa: ${window.location.href}`);
+                addDebugMessage(`search: ${window.location.search}`);
+                addDebugMessage(`hash: ${window.location.hash}`);
+
+                // Obtener parámetros de la URL
+                const urlParams = new URLSearchParams(window.location.search);
+                
+                // DEBUG: Listar TODOS los parámetros
+                addDebugMessage("=== TODOS LOS PARÁMETROS URL ===");
+                for (const [key, value] of urlParams.entries()) {
+                    addDebugMessage(`${key}: ${value.substring(0, 50)}${value.length > 50 ? '...' : ''}`);
+                }
+                addDebugMessage("=== FIN PARÁMETROS URL ===");
+
+                const code = urlParams.get('code');
+                let credential = urlParams.get('credential');
+                const authType = urlParams.get('auth_type');
+                const error = urlParams.get('error');
+
+                addDebugMessage(`Código: ${code ? 'SÍ' : 'NO'}`);
+                addDebugMessage(`Credential: ${credential ? 'SÍ' : 'NO'}`);
+                addDebugMessage(`Tipo Auth: ${authType || 'no especificado'}`);
+                addDebugMessage(`Error: ${error || 'NO'}`);
+
+                // BÚSQUEDA EN HASH COMO RESPALDO
+                if (!credential && window.location.hash) {
+                    addDebugMessage('Buscando credential en hash...');
+                    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+                    const hashCred = hashParams.get('credential');
+                    if (hashCred) {
+                        addDebugMessage(`🔍 CREDENTIAL ENCONTRADO EN HASH: ${hashCred.substring(0, 20)}...`);
+                        credential = hashCred;
+                    }
+                }
+
+                // BÚSQUEDA MANUAL DEL CREDENTIAL
+                const urlStr = window.location.href;
+                const credentialMatch = urlStr.match(/[?&]credential=([^&]+)/);
+                if (credentialMatch) {
+                    addDebugMessage(`🔍 CREDENTIAL ENCONTRADO MANUALMENTE: ${credentialMatch[1].substring(0, 20)}...`);
+                    const manualCredential = decodeURIComponent(credentialMatch[1]);
+                    addDebugMessage(`📏 Length credential manual: ${manualCredential.length}`);
+                    
+                    if (!credential) {
+                        addDebugMessage(`🔧 USANDO CREDENTIAL MANUAL porque URLSearchParams falló`);
+                        return await handleGISFlow(manualCredential);
+                    }
+                }
+
+                // DEBUG EXTRA PARA CREDENTIAL
+                if (credential) {
+                    addDebugMessage(`✅ CREDENTIAL DETECTADO - Procesando GIS`);
+                    addDebugMessage(`Credential length: ${credential.length}`);
+                    addDebugMessage("=== PROCESANDO FLUJO GIS ===");
+                    return await handleGISFlow(credential);
+                } else {
+                    addDebugMessage(`❌ NO SE DETECTÓ CREDENTIAL - Verificando OAuth tradicional`);
+                }
+
+                // Manejar flujo OAuth tradicional (intercambio por backend externo)
+                if (error) {
+                    statusEl.textContent = 'Error en la autenticación';
+                    addDebugMessage(`❌ ERROR DE GOOGLE OAUTH: ${error}`);
+                    setTimeout(() => {
+                        addDebugMessage("Redirigiendo a login por error...");
+                        window.location.href = '/login';
+                    }, 3000);
+                    return;
+                }
+
+                if (!code) {
+                    // Antes de fallar, verificar si ya existe sesión previa válida
+                    try {
+                        const existing = localStorage.getItem('google_auth_data') || localStorage.getItem('session_data') || localStorage.getItem('bisonte_mobile_session');
+                        if (existing) {
+                            addDebugMessage('🔁 Sesión previa detectada en localStorage. Evitando error y redirigiendo a Home.');
+                            statusEl.textContent = 'Sesión detectada. Redirigiendo...';
+                            manualRedirectEl.style.display = 'block';
+                            setTimeout(() => {
+                                window.location.replace('/home');
+                            }, 1000);
+                            return;
+                        }
+                    } catch {}
+
+                    statusEl.textContent = 'Código de autorización faltante';
+                    addDebugMessage("❌ NO SE RECIBIÓ CÓDIGO DE AUTORIZACIÓN");
+                    setTimeout(() => {
+                        addDebugMessage("Redirigiendo a login por falta de código...");
+                        window.location.href = '/login';
+                    }, 3000);
+                    return;
+                }
+
+                statusEl.textContent = 'Intercambiando código por tokens (backend)...';
+                addDebugMessage(`✅ CÓDIGO VÁLIDO RECIBIDO: ${code.substring(0, 20)}...`);
+                addDebugMessage("=== INTERCAMBIO VIA BACKEND EXTERNO ===");
+
+                const API_BASE = 'https://bisonte-api.vercel.app';
+                const redirectUri = 'https://www.bisonteapp.com/auth/google/callback';
+
+                const resp = await fetch(`${API_BASE}/api/auth/google`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        code,
+                        redirect_uri: redirectUri,
+                        flow: 'oauth_code'
+                    })
+                });
+                addDebugMessage(`📩 RESPUESTA BACKEND /api/auth/google: ${resp.status}`);
+                const result = await resp.json().catch(()=>({}));
+                if (!resp.ok || (!result && !result.success)) {
+                    addDebugMessage(`❌ Error backend: ${result?.error || resp.statusText}`);
+                    throw new Error(result?.error || `backend_error_${resp.status}`);
+                }
+
+                // Normalizar datos
+                const tokenData = result.tokens || { access_token: result.access_token, refresh_token: result.refresh_token, id_token: result.id_token, expires_in: result.expires_in };
+                const userData = result.user || {};
+                addDebugMessage(`✅ DATOS RECIBIDOS DEL BACKEND`);
+
+                statusEl.textContent = 'Guardando sesión...';
+                addDebugMessage("=== GUARDANDO SESIÓN EN LOCALSTORAGE ===");
+
+                // Limpiar localStorage previo
+                const keysToRemove = ['google_auth_data', 'session_data', 'authToken', 'user', 'bisonte_mobile_session'];
+                keysToRemove.forEach(key => {
+                    try {
+                        localStorage.removeItem(key);
+                        addDebugMessage(`Removido: ${key}`);
+                    } catch (e) {
+                        addDebugMessage(`Error removiendo ${key}: ${e.message}`);
+                    }
+                });
+
+                // Crear datos de sesión
+                const googleAuthData = {
+                    user: userData,
+                    tokens: tokenData,
+                    timestamp: Date.now(),
+                    expires_at: Date.now() + (tokenData.expires_in * 1000)
+                };
+
+                const sessionData = {
+                    id: userData.id,
+                    email: userData.email,
+                    name: userData.name,
+                    picture: userData.picture,
+                    verified_email: userData.verified_email,
+                    access_token: tokenData.access_token,
+                    refresh_token: tokenData.refresh_token,
+                    expires_at: Date.now() + (tokenData.expires_in * 1000),
+                    created_at: Date.now()
+                };
+
+                const mobileSessionData = {
+                    user: {
+                        id: userData.id,
+                        email: userData.email,
+                        name: userData.name,
+                        picture: userData.picture
+                    },
+                    token: tokenData.access_token,
+                    refreshToken: tokenData.refresh_token,
+                    expires: new Date(Date.now() + (tokenData.expires_in * 1000)).toISOString(),
+                    created: new Date().toISOString()
+                };
+
+                // Guardar en múltiples formatos
+                localStorage.setItem('google_auth_data', JSON.stringify(googleAuthData));
+                localStorage.setItem('session_data', JSON.stringify(sessionData));
+                localStorage.setItem('bisonte_mobile_session', JSON.stringify(mobileSessionData));
+                localStorage.setItem('authToken', tokenData?.access_token || tokenData?.id_token || '');
+                localStorage.setItem('refreshToken', tokenData?.refresh_token || '');
+                localStorage.setItem('user', JSON.stringify(userData));
+                localStorage.setItem('user_email', userData.email);
+                localStorage.setItem('user_name', userData.name);
+                localStorage.setItem('auth_timestamp', Date.now().toString());
+                localStorage.setItem('auth_success', 'true');
+                localStorage.setItem('oauth_completed', 'true');
+
+                addDebugMessage("💾 SESIÓN GUARDADA EN MÚLTIPLES FORMATOS");
+
+                // Verificar que se guardó correctamente
+                statusEl.textContent = 'Verificando sesión guardada...';
+                addDebugMessage("=== VERIFICANDO DATOS GUARDADOS ===");
+                
+                const keysToCheck = ['google_auth_data', 'session_data', 'bisonte_mobile_session', 'authToken', 'user'];
+                keysToCheck.forEach(key => {
+                    try {
+                        const value = localStorage.getItem(key);
+                        addDebugMessage(`${key}: ${value ? '✅' : '❌'} (${value ? value.length : 0} chars)`);
+                    } catch (e) {
+                        addDebugMessage(`${key}: ❌ ERROR - ${e.message}`);
+                    }
+                });
+
+                statusEl.textContent = '¡Autenticación exitosa! Redirigiendo...';
+                addDebugMessage("=== INICIANDO PROCESO DE REDIRECCIÓN ===");
+                addDebugMessage("✅ AUTENTICACIÓN COMPLETADA EXITOSAMENTE");
+
+                // Mostrar botón de redirección manual
+                manualRedirectEl.style.display = 'block';
+
+                // Redirigir automáticamente
+                setTimeout(() => {
+                    addDebugMessage("🚀 Intento de redirección automática...");
+                    try {
+                        window.location.replace('/home');
+                    } catch (e) {
+                        addDebugMessage(`❌ Error en redirección automática: ${e.message}`);
+                        window.location.href = '/home';
+                    }
+                }, 2000);
+
+            } catch (error) {
+                statusEl.textContent = 'Error en el proceso';
+                addDebugMessage(`❌ ERROR FATAL: ${error.message}`);
+                addDebugMessage(`Stack trace: ${error.stack}`);
+                
+                setTimeout(() => {
+                    addDebugMessage("Redirigiendo a login por error...");
+                    window.location.href = '/login';
+                }, 3000);
+            }
+        }
+
+        // Ejecutar cuando cargue la página
+        document.addEventListener('DOMContentLoaded', () => {
+            addDebugMessage("Página cargada, iniciando callback...");
+            // Intentar evitar cache del Service Worker en esta vista crítica
+            if ('serviceWorker' in navigator) {
+                try {
+                    addDebugMessage('Intentando desregistrar Service Worker para evitar caché...');
+                    navigator.serviceWorker.getRegistrations()?.then(regs => {
+                        regs.forEach(reg => reg.unregister());
+                        addDebugMessage('Service Worker desregistrado (si existía).');
+                    }).catch(e => addDebugMessage('Error desregistrando SW: ' + e.message));
+                } catch (e) {
+                    addDebugMessage('SW unregister error: ' + e.message);
+                }
+            }
+            setTimeout(handleCallback, 300);
+        });
+    </script>
+</body>
+</html>

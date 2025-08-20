@@ -1,0 +1,142 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model usuarios {
+  id                  Int                   @id @default(autoincrement())
+  nombre              String?               @db.VarChar(200)
+  celular             String?               @db.VarChar(20)
+  ciudad              String?               @db.VarChar(200)
+  email               String                @unique @db.VarChar(150)
+  password            String?               @db.VarChar(500)
+  token               String?               @db.VarChar(500)
+  tokenFecha          DateTime?
+  esAdministrador     Boolean               @default(false)
+  esRecolector        Boolean               @default(false)
+  creadoEn            DateTime              @default(now())
+  actualizadoEn       DateTime              @updatedAt
+  envios              HistorialEnvio[]
+  sesiones_usuario    sesiones_usuario[]
+  tokens_notificacion tokens_notificacion[]
+
+  @@index([email])
+  @@index([esAdministrador])
+  @@map("usuarios")
+}
+
+model HistorialEnvio {
+  id             Int       @id @default(autoincrement())
+  NumeroGuia     String    @unique
+  PaymentId      String?
+  Origen         String
+  Destino        String
+  Destinatario   String
+  Remitente      String
+  Estado         String
+  FechaSolicitud DateTime  @default(now())
+  usuarioId      Int?
+  peso           Float?
+  valor          Float?
+  dimensiones    String?
+  notas          String?
+  fechaEntrega   DateTime?
+  creadoEn       DateTime  @default(now())
+  actualizadoEn  DateTime  @updatedAt
+  usuario        usuarios? @relation(fields: [usuarioId], references: [id])
+
+  @@index([NumeroGuia])
+  @@index([Estado])
+  @@index([FechaSolicitud])
+  @@index([usuarioId])
+  @@map("historial_envio")
+}
+
+model Contacto {
+  id               Int       @id @default(autoincrement())
+  nombre           String    @db.VarChar(200)
+  tipo_documento   String?   @db.VarChar(20)
+  numero_documento String?   @db.VarChar(30)
+  celular          String?   @db.VarChar(20)
+  ciudad           String?   @db.VarChar(200)
+  email            String?   @db.VarChar(150)
+  correo           String    @db.VarChar(150)
+  mensaje          String
+  creadoEn         DateTime  @default(now())
+  leido            Boolean   @default(false)
+  respondido       Boolean   @default(false)
+  archivado        Boolean   @default(false)
+  respuesta        String?
+  fechaRespuesta   DateTime?
+
+  @@index([creadoEn])
+  @@index([leido])
+  @@index([respondido])
+  @@map("contactos")
+}
+
+model configuracion_app {
+  id            Int      @id @default(autoincrement())
+  clave         String   @unique
+  valor         String
+  descripcion   String?
+  activa        Boolean  @default(true)
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime
+
+  @@index([activa])
+  @@index([clave])
+}
+
+model eventos_analytics {
+  id           String   @id
+  usuarioId    Int?
+  sesionId     String?
+  eventoTipo   String
+  eventoNombre String
+  pantalla     String?
+  datos        Json?
+  timestamp    DateTime @default(now())
+
+  @@index([eventoTipo])
+  @@index([timestamp])
+  @@index([usuarioId])
+}
+
+model sesiones_usuario {
+  id           String    @id
+  usuarioId    Int
+  deviceId     String?
+  platform     String?
+  appVersion   String?
+  osVersion    String?
+  ipAddress    String?
+  userAgent    String?
+  inicioSesion DateTime  @default(now())
+  finSesion    DateTime?
+  activa       Boolean   @default(true)
+  usuarios     usuarios  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([activa])
+  @@index([inicioSesion])
+  @@index([usuarioId])
+}
+
+model tokens_notificacion {
+  id        Int      @id @default(autoincrement())
+  usuarioId Int
+  token     String   @unique
+  platform  String
+  activo    Boolean  @default(true)
+  creadoEn  DateTime @default(now())
+  ultimoUso DateTime @default(now())
+  usuarios  usuarios @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([activo])
+  @@index([usuarioId])
+}

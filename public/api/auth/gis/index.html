@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Procesando Autenticación Google - Bisonte</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            min-height: 100vh; 
+            margin: 0; 
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6); 
+        }
+        .container { 
+            background: white; 
+            padding: 2rem; 
+            border-radius: 8px; 
+            text-align: center; 
+            max-width: 400px; 
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1); 
+        }
+        .spinner { 
+            width: 40px; 
+            height: 40px; 
+            border: 4px solid #f3f3f3; 
+            border-top: 4px solid #3b82f6; 
+            border-radius: 50%; 
+            animation: spin 1s linear infinite; 
+            margin: 20px auto; 
+        }
+        @keyframes spin { 
+            0% { transform: rotate(0deg); } 
+            100% { transform: rotate(360deg); } 
+        }
+        .debug { 
+            background: #f8f9fa; 
+            padding: 10px; 
+            border-radius: 4px; 
+            margin: 10px 0; 
+            font-size: 12px; 
+            text-align: left; 
+            font-family: monospace; 
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>🔐 Procesando Autenticación Google</h2>
+        <div class="spinner"></div>
+        <p id="status">Redirigiendo al callback...</p>
+        <div class="debug" id="debug"></div>
+    </div>
+
+    <script>
+        // Handler para Google Identity Services (GIS)
+        function processGISAuth() {
+            const status = document.getElementById('status');
+            const debug = document.getElementById('debug');
+            
+            try {
+                // Obtener credential del POST o GET
+                let credential = '';
+                
+                // Si es POST (form submission)
+                if (window.location.search.includes('credential=')) {
+                    const urlParams = new URLSearchParams(window.location.search);
+                    credential = urlParams.get('credential');
+                    debug.innerHTML += `📝 GET credential: ${credential ? credential.substring(0, 20) + '...' : 'NO'}<br>`;
+                }
+                
+                // Si hay credential en el hash (algunos casos)
+                if (window.location.hash) {
+                    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+                    if (hashParams.get('credential')) {
+                        credential = hashParams.get('credential');
+                        debug.innerHTML += `📝 HASH credential: ${credential.substring(0, 20)}...<br>`;
+                    }
+                }
+                
+                // Verificar si hay datos en sessionStorage o localStorage (GIS puede usarlos)
+                const sessionCredential = sessionStorage.getItem('google_credential');
+                const localCredential = localStorage.getItem('google_credential');
+                
+                if (sessionCredential) {
+                    credential = sessionCredential;
+                    debug.innerHTML += `📝 SESSION credential: ${credential.substring(0, 20)}...<br>`;
+                }
+                
+                if (localCredential) {
+                    credential = localCredential;
+                    debug.innerHTML += `📝 LOCAL credential: ${credential.substring(0, 20)}...<br>`;
+                }
+                
+                debug.innerHTML += `🌐 URL actual: ${window.location.href}<br>`;
+                debug.innerHTML += `📨 Method: ${document.referrer ? 'POST redirect' : 'Direct access'}<br>`;
+                
+                // Crear URL de callback
+                const callbackUrl = new URL('/auth/google/callback', window.location.origin);
+                
+                if (credential) {
+                    callbackUrl.searchParams.set('credential', credential);
+                    status.textContent = 'Credential encontrado, redirigiendo...';
+                    debug.innerHTML += `✅ Redirigiendo con credential<br>`;
+                } else {
+                    // Buscar en el DOM si hay algún form oculto con credential
+                    const forms = document.querySelectorAll('form');
+                    const inputs = document.querySelectorAll('input[name="credential"]');
+                    
+                    if (inputs.length > 0) {
+                        credential = inputs[0].value;
+                        callbackUrl.searchParams.set('credential', credential);
+                        debug.innerHTML += `📋 FORM credential: ${credential.substring(0, 20)}...<br>`;
+                    } else {
+                        callbackUrl.searchParams.set('error', 'no_credential_found');
+                        status.textContent = 'No se encontró credential, redirigiendo con error...';
+                        debug.innerHTML += `❌ No credential found<br>`;
+                    }
+                }
+                
+                debug.innerHTML += `🎯 Redirect URL: ${callbackUrl.href}<br>`;
+                
+                // Redirigir después de un breve delay
+                setTimeout(() => {
+                    window.location.href = callbackUrl.href;
+                }, 1500);
+                
+            } catch (error) {
+                debug.innerHTML += `❌ Error: ${error.message}<br>`;
+                status.textContent = 'Error procesando autenticación';
+                
+                // Redirigir al callback con error
+                const errorUrl = new URL('/auth/google/callback', window.location.origin);
+                errorUrl.searchParams.set('error', 'gis_processing_error');
+                errorUrl.searchParams.set('error_description', error.message);
+                
+                setTimeout(() => {
+                    window.location.href = errorUrl.href;
+                }, 2000);
+            }
+        }
+        
+        // Procesar cuando la página carga
+        document.addEventListener('DOMContentLoaded', processGISAuth);
+        
+        // También procesar inmediatamente en caso de que DOMContentLoaded ya haya pasado
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', processGISAuth);
+        } else {
+            processGISAuth();
+        }
+    </script>
+</body>
+</html>
