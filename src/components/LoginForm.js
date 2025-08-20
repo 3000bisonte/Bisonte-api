@@ -311,7 +311,7 @@ const LoginForm = () => {
             {/* Google Button (Redirect) */}
             <div className="flex justify-center">
               <GoogleSignInButton
-                clientId="108242889910-n3ptem16orktkl0klv8onlttfl83r1ul.apps.googleusercontent.com"
+                clientId="831420252741-4191330gjs69hkm4jr55rig3d8ouas0f.apps.googleusercontent.com"
                 useRedirect={true}
                 onCredential={async (credential) => {
                   try {
