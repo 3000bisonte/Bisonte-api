@@ -50,34 +50,78 @@ const Home = () => {
   const router = useRouter();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [error, setError] = useState(null);
+
+  // Error boundary manual
+  const handleError = (error, errorInfo) => {
+    console.error('Home Component Error:', error, errorInfo);
+    setError(error);
+  };
+
+  // Wrap problematic operations in try-catch
+  const safeOperation = (operation, fallback = null) => {
+    try {
+      return operation();
+    } catch (error) {
+      handleError(error, 'Safe Operation');
+      return fallback;
+    }
+  };
 
   // Solo marcar como montado después del primer render
   useEffect(() => {
-    setMounted(true);
+    try {
+      setMounted(true);
+    } catch (error) {
+      handleError(error, 'Mount Effect');
+    }
   }, []);
 
-  const userName = (() => {
+  const userName = safeOperation(() => {
     if (session?.user?.name) return session.user.name;
     if (session?.user?.email) return session.user.email.split("@")[0];
     return "Usuario";
-  })();
+  }, "Usuario");
 
-  // Verificar sesión y redirigir si es necesario - Dar más tiempo para cargar
+  // Verificar sesión y redirigir si es necesario - Sin async y con error handling
   useEffect(() => {
-    if (mounted && !loading) {
-      // Dar un momento extra para que la sesión se establezca
-      const timer = setTimeout(() => {
+    if (!mounted || loading) return;
+    
+    const checkAndRedirect = () => {
+      try {
         if (!session) {
-          console.log('⚠️ Home: No hay sesión después del timeout, redirigiendo a login');
+          console.log('⚠️ Home: No hay sesión, redirigiendo a login');
           router.replace('/login');
         } else {
           console.log('✅ Home: Sesión encontrada:', session.user?.email);
         }
-      }, 100); // Pequeño delay para asegurar que la sesión se establezca
+      } catch (error) {
+        handleError(error, 'Session Check');
+      }
+    };
 
-      return () => clearTimeout(timer);
-    }
+    // Pequeño delay para asegurar que la sesión se establezca
+    const timer = setTimeout(checkAndRedirect, 100);
+    return () => clearTimeout(timer);
   }, [mounted, loading, session, router]);
+
+  // Mostrar error si lo hay
+  if (error) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', background: '#f8fafc', padding: '2rem' }}>
+        <div style={{ background: '#fee2e2', border: '1px solid #fecaca', borderRadius: '0.5rem', padding: '1rem', maxWidth: '500px' }}>
+          <h2 style={{ color: '#dc2626', marginBottom: '0.5rem' }}>Error en la aplicación</h2>
+          <p style={{ color: '#991b1b', marginBottom: '1rem' }}>Ha ocurrido un error inesperado. Por favor, recarga la página.</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            style={{ background: '#dc2626', color: 'white', padding: '0.5rem 1rem', border: 'none', borderRadius: '0.25rem', cursor: 'pointer' }}
+          >
+            Recargar página
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // Mostrar loading mientras no esté montado o cargando
   if (!mounted || loading) {
@@ -106,25 +150,34 @@ const Home = () => {
     return "Usuario";
   };
 
-  const handleLogout = async () => {
-    setShowProfileMenu(false);
-    // Limpiar localStorage
+  const handleLogout = () => {
     try {
-      localStorage.removeItem('bisonte_mobile_session');
-      localStorage.removeItem('google_auth_data');
-      localStorage.removeItem('session_data');
-      localStorage.removeItem('authToken');
-    } catch {}
-    signOut();
-    router.push("/");
+      setShowProfileMenu(false);
+      // Limpiar localStorage
+      try {
+        localStorage.removeItem('bisonte_mobile_session');
+        localStorage.removeItem('google_auth_data');
+        localStorage.removeItem('session_data');
+        localStorage.removeItem('authToken');
+      } catch {}
+      signOut();
+      router.push("/");
+    } catch (error) {
+      handleError(error, 'Logout');
+      window.location.href = '/login';
+    }
   };
 
   // Cerrar menu al hacer click fuera
   useEffect(() => {
-    const handleClickOutside = () => setShowProfileMenu(false);
-    if (showProfileMenu) {
-      document.addEventListener("click", handleClickOutside);
-      return () => document.removeEventListener("click", handleClickOutside);
+    try {
+      const handleClickOutside = () => setShowProfileMenu(false);
+      if (showProfileMenu) {
+        document.addEventListener("click", handleClickOutside);
+        return () => document.removeEventListener("click", handleClickOutside);
+      }
+    } catch (error) {
+      handleError(error, 'Click Outside Effect');
     }
   }, [showProfileMenu]);
 
