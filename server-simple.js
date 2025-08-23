@@ -292,6 +292,7 @@ app.get('/api/test', (req, res) => {
     endpoints: {
       health: '/',
       test: '/api/test',
+      public_config: '/api/public/config (GET - Google OAuth config)',
       // Autenticación
       auth_login: '/api/auth/login (POST)',
       auth_google: '/api/auth/google (POST)',
@@ -327,6 +328,71 @@ app.get('/api/test', (req, res) => {
   admin_settings: '/api/admin/settings (GET/POST - solo admin)'
     }
   });
+});
+
+// Endpoint de configuración de Google OAuth para el frontend
+app.get('/api/public/config', (req, res) => {
+  try {
+    console.log('🔧 Google OAuth Config request from:', req.headers.origin || 'unknown');
+    
+    // Obtener el origen de la petición para determinar el entorno
+    const origin = req.headers.origin || req.headers.referer || '';
+    
+    // Detectar si es desarrollo basado en el origen
+    const isDevelopment = origin.includes('localhost') || 
+                         origin.includes('127.0.0.1') || 
+                         origin.includes('3000') ||
+                         origin.includes('3001');
+    
+    // Client IDs por entorno (desde variables de entorno de Vercel)
+    const clientIds = {
+      development: process.env.GOOGLE_CLIENT_ID_LOCAL || "831420252741-4191330gjs69hkm4jr55rig3d8ouas0f.apps.googleusercontent.com",
+      production: process.env.GOOGLE_CLIENT_ID_PROD || "108242889910-n3ptem16orktkl0klv8onlttfl83r1ul.apps.googleusercontent.com"
+    };
+    
+    // Seleccionar Client ID basado en entorno
+    const googleClientId = isDevelopment ? clientIds.development : clientIds.production;
+    
+    // Determinar redirect URI basado en origen
+    let redirectUri;
+    if (isDevelopment) {
+      redirectUri = origin + '/auth/google/callback';
+    } else {
+      redirectUri = 'https://www.bisonteapp.com/auth/google/callback';
+    }
+    
+    // Cache headers
+    res.setHeader('Cache-Control', 'public, max-age=300'); // Cache por 5 minutos
+    
+    // Respuesta con configuración
+    const response = {
+      googleClientId,
+      redirectUri,
+      environment: isDevelopment ? 'development' : 'production',
+      origin: origin || 'unknown',
+      timestamp: new Date().toISOString(),
+      success: true,
+      version: '1.0.0'
+    };
+    
+    console.log('✅ Google Config response:', {
+      environment: response.environment,
+      clientIdPrefix: googleClientId.substring(0, 12) + '...',
+      redirectUri
+    });
+    
+    res.json(response);
+    
+  } catch (error) {
+    console.error('❌ Error en API config:', error);
+    
+    res.status(500).json({
+      error: 'Internal server error',
+      message: error.message,
+      success: false,
+      timestamp: new Date().toISOString()
+    });
+  }
 });
 
 // ===== AUTENTICACIÓN =====
