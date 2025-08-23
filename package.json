@@ -1,0 +1,14 @@
+{
+  "name": "bisonte-api-server",
+  "version": "1.0.0",
+  "description": "API backend for Bisonte Logística",
+  "main": "server-simple.js",
+  "scripts": {
+    "start": "node server-simple.js",
+    "dev": "node server-simple.js"
+  },
+  "dependencies": {},
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
