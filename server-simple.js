@@ -287,7 +287,7 @@ app.post('/api/mercadopago/create-preference', (req, res) => {
 // Ruta de test y diagnóstico
 app.get('/api/test', (req, res) => {
   res.json({ 
-    message: 'API COMPLETA funcionando', 
+    message: 'API COMPLETA funcionando - v2.1', 
     timestamp: new Date().toISOString(),
     endpoints: {
       health: '/',
