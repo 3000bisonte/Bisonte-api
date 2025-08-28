@@ -5,6 +5,10 @@
       "maxDuration": 30
     }
   },
+  "routes": [
+    { "handle": "filesystem" },
+    { "src": "/api/(.*)", "dest": "https://bisonte-api.vercel.app/api/$1" }
+  ],
   "headers": [
     {
       "source": "/api/(.*)",

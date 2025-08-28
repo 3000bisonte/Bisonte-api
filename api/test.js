@@ -1,27 +1,14 @@
 export default function handler(req, res) {
-  console.log('Test API called:', req.method, req.url);
-  
-  // Headers CORS
+  // Sunset this dev-only endpoint to prevent confusion in production
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-  
-  if (req.method !== 'GET') {
-    return res.status(405).json({ 
-      error: 'Method not allowed',
-      message: 'Only GET requests are allowed'
-    });
-  }
-
-  res.status(200).json({
-    success: true,
-    message: 'Test API is working',
-    timestamp: new Date().toISOString(),
-    url: req.url,
-    method: req.method
+  res.setHeader('Sunset', new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toUTCString());
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  res.status(410).json({
+    success: false,
+    deprecated: true,
+    message: 'Deprecated test endpoint. Use the centralized backend at /api/* via proxy.',
+    docs: 'Set API_BASE_URL and use scripts/test-endpoints.mjs for diagnostics.'
   });
 }
