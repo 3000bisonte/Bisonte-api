@@ -7,13 +7,6 @@
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
   return res.json({
-    appName: 'Bisonte Logística',
-    version: '1.0.0',
-    environment: process.env.NODE_ENV || 'production',
-    features: {
-      googleAuth: true,
-      mercadoPago: true,
-      emailService: true
-    }
+    google: { id: 'google', name: 'Google', type: 'oauth', signinUrl: '/api/auth/signin/google' }
   });
 };
