@@ -1,15 +1,1 @@
-﻿{
-  " name\: \bisonte-api\,
- \version\: \1.0.0\,
- \description\: \Bisonte API Backend\,
- \scripts\: {
- \start\: \node api/index.js\
- },
- \dependencies\: {
- \google-auth-library\: \8.9.0\,
- \jsonwebtoken\: \9.0.2\
- },
- \engines\: {
- \node\: \18.x\
- }
-}
+{"name":"bisonte-api","version":"1.0.0","description":"Bisonte API Backend","scripts":{"start":"node api/index.js"},"dependencies":{"google-auth-library":"8.9.0","jsonwebtoken":"9.0.2"},"engines":{"node":"18.x"}}
