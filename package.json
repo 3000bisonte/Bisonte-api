@@ -1,14 +1,12 @@
-{
-  "name": "bisonte-api-server",
+﻿{
+  "name": "bisonte-api",
   "version": "1.0.0",
-  "description": "API backend for Bisonte Logística",
-  "main": "server-simple.js",
-  "scripts": {
-    "start": "node server-simple.js",
-    "dev": "node server-simple.js"
+  "description": "Bisonte API",
+  "main": "api/index.js",
+  "dependencies": {
+    "google-auth-library": "^8.9.0"
   },
-  "dependencies": {},
   "engines": {
-    "node": ">=18.0.0"
+    "node": "18.x"
   }
 }
